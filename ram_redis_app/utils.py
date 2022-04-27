@@ -83,16 +83,12 @@ def get_from_to_scores(redis_instance, date_from, date_to):
 
 
 def binary_get_score(redis_instance, target_time, zcount, right=True):
-    right_index = prev_index = zcount-1
     left_index = 0
-    current_index = int(right_index/2)
+    right_index = zcount - 1
     candidate = None
 
-    trigger = 1
-    while trigger:
-        if current_index == prev_index:
-            current_index = right_index if current_index==left_index else left_index
-            trigger = 0
+    while left_index <= right_index:
+        current_index = (left_index + right_index) // 2
 
         key_with_score = redis_instance.zrange(REDIS_ZSET_NAME, current_index, current_index, withscores=True)
         key = key_with_score[0][0].decode('utf-8')
@@ -101,15 +97,11 @@ def binary_get_score(redis_instance, target_time, zcount, right=True):
         datetime_target = datetime.strptime(target_time, DATETIME_FORMAT)
 
         if datetime_key < datetime_target:
-            delta = int((right_index-current_index)/2)
-            prev_index = left_index = current_index
-            current_index += delta
+            left_index = current_index + 1
             if not right:
                 candidate = key_with_score[0][1]
         elif datetime_key > datetime_target:
-            delta = int((current_index-left_index)/2)
-            prev_index = right_index = current_index
-            current_index -= delta
+            right_index = current_index - 1
             if right:
                 candidate = key_with_score[0][1]
         else:
