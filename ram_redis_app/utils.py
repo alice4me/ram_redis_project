@@ -1,7 +1,6 @@
 import json
 import psutil
 import GPUtil
-import math
 
 from datetime import datetime
 
@@ -18,7 +17,7 @@ def get_ram_usage():
 
 
 def get_gpu_usage():
-    return [gpu.load for gpu in GPUtil.getGPUs()]
+    return [round(gpu.load*100, 1) for gpu in GPUtil.getGPUs()]
 
 
 def save_request_data(request, redis_instance):
@@ -65,16 +64,16 @@ def get_hash_keys(redis_instance, date_from_score, date_to_score):
 
 
 def get_from_to_scores(redis_instance, date_from, date_to):
-    zcount = redis_instance.zcount(REDIS_ZSET_NAME, -math.inf, math.inf)
+    zcard = redis_instance.zcard(REDIS_ZSET_NAME)
 
-    if zcount == 0:
+    if zcard == 0:
         return None, None
 
-    date_from_score = binary_get_score(redis_instance, date_from, zcount, right=True) if date_from\
+    date_from_score = binary_get_score(redis_instance, date_from, zcard, right=True) if date_from\
         else redis_instance.zrange(REDIS_ZSET_NAME, 0, 0, withscores=True)[0][1]
 
     if date_from_score:
-        date_to_score = binary_get_score(redis_instance, date_to, zcount, right=False) if date_to\
+        date_to_score = binary_get_score(redis_instance, date_to, zcard, right=False) if date_to\
             else redis_instance.zrange(REDIS_ZSET_NAME, -1, -1, withscores=True)[0][1]
     else:
         date_to_score = None
@@ -82,9 +81,9 @@ def get_from_to_scores(redis_instance, date_from, date_to):
     return date_from_score, date_to_score
 
 
-def binary_get_score(redis_instance, target_time, zcount, right=True):
+def binary_get_score(redis_instance, target_time, zcard, right=True):
     left_index = 0
-    right_index = zcount - 1
+    right_index = zcard - 1
     candidate = None
 
     while left_index <= right_index:
