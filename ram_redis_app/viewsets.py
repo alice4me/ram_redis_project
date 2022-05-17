@@ -52,7 +52,8 @@ class RamViewSet(ViewSet):
                 raise APIException('Please, do not rename utils functions')
 
     def get_queries(self, request, *args, **kwargs):
-        date_from_score, date_to_score, hash_keys = self.__get_scores_and_keys_for_queries(request, *args, **kwargs)
+        start, num = utils.get_pagination_params(request)
+        _, _, hash_keys = self.__get_scores_and_keys_for_queries(request, start, num)
         hash_values = utils.get_hash_values(self.redis_instance, hash_keys)
 
         response_dict = {}
@@ -64,17 +65,17 @@ class RamViewSet(ViewSet):
         return Response(response_dict, status=status.HTTP_200_OK)
 
     def delete_queries(self, request, *args, **kwargs):
-        date_from_score, date_to_score, hash_keys = self.__get_scores_and_keys_for_queries(request, *args, **kwargs)
+        date_from_score, date_to_score, hash_keys = self.__get_scores_and_keys_for_queries(request)
         deleted_count = utils.remove_queries_data(self.redis_instance, date_from_score, date_to_score, hash_keys)
 
         utils.save_request_data(request, self.redis_instance)
         return Response({'deleted_count': deleted_count}, status=status.HTTP_204_NO_CONTENT)
 
-    def __get_scores_and_keys_for_queries(self, request, *args, **kwargs):
+    def __get_scores_and_keys_for_queries(self, request, start=None, num=None):
         serializer = serializers.DateTimeSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             date_from, date_to = serializer.data.get('date_from'), serializer.data.get('date_to')
             
             date_from_score, date_to_score = utils.get_from_to_scores(self.redis_instance, date_from, date_to)
-            hash_keys = utils.get_hash_keys(self.redis_instance, date_from_score, date_to_score)
+            hash_keys = utils.get_hash_keys(self.redis_instance, date_from_score, date_to_score, start, num)
             return date_from_score, date_to_score, hash_keys

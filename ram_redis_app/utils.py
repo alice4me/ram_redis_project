@@ -4,7 +4,9 @@ import GPUtil
 
 from datetime import datetime
 
-from ram_redis_app.config import REDIS_ZSET_NAME, REDIS_HASH_NAME, DATETIME_FORMAT
+from ram_redis_app.config import REDIS_ZSET_NAME, REDIS_HASH_NAME, DATETIME_FORMAT, LIMIT, OFFSET
+
+from rest_framework.exceptions import APIException
 
 
 def get_cpu_usage():
@@ -24,7 +26,7 @@ def save_request_data(request, redis_instance):
     hash_key, zscore = generate_hash_key(redis_instance)
     redis_instance.zadd(REDIS_ZSET_NAME, {hash_key: zscore})
 
-    hash_data = {'method': request.method, 'path': request.path, 'data': request.data}
+    hash_data = {'method': request.method, 'path': request.path, 'data': request.data, 'params': request.query_params}
     redis_instance.hset(REDIS_HASH_NAME, hash_key, json.dumps(hash_data))
 
 
@@ -55,11 +57,11 @@ def get_hash_values(redis_instance, list_of_keys):
     return redis_instance.hmget(REDIS_HASH_NAME, list_of_keys)
 
 
-def get_hash_keys(redis_instance, date_from_score, date_to_score):
+def get_hash_keys(redis_instance, date_from_score, date_to_score, start, num):
     if not all([date_from_score, date_to_score]):
         return []
 
-    bytes_key_list = redis_instance.zrangebyscore(REDIS_ZSET_NAME, date_from_score, date_to_score)
+    bytes_key_list = redis_instance.zrangebyscore(REDIS_ZSET_NAME, date_from_score, date_to_score, start, num)
     return [byte_key.decode('utf-8') for byte_key in bytes_key_list]
 
 
@@ -115,3 +117,12 @@ def remove_queries_data(redis_instance, date_from_score, date_to_score, hash_key
     redis_instance.zremrangebyscore(REDIS_ZSET_NAME, date_from_score, date_to_score)
     redis_instance.hdel(REDIS_HASH_NAME, *hash_keys)
     return len(hash_keys)
+
+
+def get_pagination_params(request):
+    try:
+        limit, offset = int(request.query_params.get('limit', LIMIT)), int(request.query_params.get('offset', OFFSET))
+    except ValueError:
+        raise APIException('Incorrect pagination parameters')
+    else:
+        return offset, limit

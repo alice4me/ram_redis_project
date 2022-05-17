@@ -4,3 +4,6 @@ REDIS_DB_INDEX = 1
 
 DATETIME_FORMAT = "%Y:%m:%d:%H:%M:%S"
 LOAD_CHOICES = ['cpu', 'ram', 'gpu']
+
+LIMIT = 100
+OFFSET = 0
